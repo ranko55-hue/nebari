@@ -8,7 +8,7 @@ import { supabase, parseDbError } from './lib/supabase'
 import { t, getLocale, setLocale } from './lib/i18n'
 import ImportScreen from './pages/ImportScreen'
 
-const APP_VERSION = 'v0.2'
+const APP_VERSION = 'v0.3'
 
 const S = {
   page: {
@@ -138,18 +138,35 @@ function Home({ session, onOpenImport, onNewTree }) {
   const [profile, setProfile] = useState(null)
   const [trees, setTrees] = useState([])
 
+  const [loadError, setLoadError] = useState(null)
+
   const load = useCallback(async () => {
-    const [{ data: p }, { data: tr }] = await Promise.all([
+    setLoadError(null)
+
+    const [profRes, treesRes, mediaRes] = await Promise.all([
       supabase.from('profiles')
         .select('username, display_name')
         .eq('id', session.user.id).single(),
-      // tree_media(count) pulls the photo count per tree in one query
       supabase.from('trees')
-        .select('id, name, created_at, tree_media(count)')
+        .select('id, name, created_at')
         .eq('owner_id', session.user.id)
         .order('created_at', { ascending: true }),
+      supabase.from('tree_media')
+        .select('tree_id')
+        .eq('owner_id', session.user.id),
     ])
-    setProfile(p); setTrees(tr || [])
+
+    // Never swallow errors again — surface the first one on screen.
+    const firstErr = profRes.error || treesRes.error || mediaRes.error
+    if (firstErr) setLoadError(firstErr.message)
+
+    const counts = {}
+    for (const m of mediaRes.data || []) {
+      counts[m.tree_id] = (counts[m.tree_id] || 0) + 1
+    }
+
+    setProfile(profRes.data)
+    setTrees((treesRes.data || []).map((t) => ({ ...t, photoCount: counts[t.id] || 0 })))
   }, [session.user.id])
 
   useEffect(() => { load() }, [load])
@@ -164,8 +181,10 @@ function Home({ session, onOpenImport, onNewTree }) {
           : `${trees.length} trees on your bench`}
       </p>
 
+      {loadError && <p style={S.err}>⚠️ {loadError}</p>}
+
       {trees.map((tree) => {
-        const count = tree.tree_media?.[0]?.count ?? 0
+        const count = tree.photoCount
         return (
           <div key={tree.id} style={S.treeRow}>
             <div>
