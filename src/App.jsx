@@ -1,65 +1,146 @@
 /**
- * App.jsx — shell: session, login, tree list (with photo counts), import flow.
- * Full replacement.
+ * App.jsx — v0.4, the shibui edition.
+ * Design language: docs/04-design.md. All colors come from theme.css vars.
+ * The bench shows each tree as a framed photo with the horizon line;
+ * trees without photos get the single brush stroke on pine-night.
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, parseDbError } from './lib/supabase'
+import { supabase, parseDbError, signedMediaUrls } from './lib/supabase'
 import { t, getLocale, setLocale } from './lib/i18n'
 import ImportScreen from './pages/ImportScreen'
 
-const APP_VERSION = 'v0.3'
+const APP_VERSION = 'v0.4'
 
 const S = {
   page: {
-    minHeight: '100vh', display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center',
-    fontFamily: 'system-ui, sans-serif', background: '#f4f6f2',
-    color: '#1a2e1a', padding: 16,
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    background: 'var(--paper)',
+    color: 'var(--ink)',
+    fontFamily: 'var(--font-body)',
   },
-  card: {
-    background: '#fff', borderRadius: 16, padding: 28,
-    width: '100%', maxWidth: 420, boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  shell: { width: '100%', maxWidth: 420, padding: '0 var(--pad-side) 60px', boxSizing: 'border-box' },
+  wordmark: {
+    fontFamily: 'var(--font-display)',
+    fontSize: 13,
+    letterSpacing: '0.28em',
+    color: 'var(--stone)',
+    textTransform: 'uppercase',
+    padding: '34px 0 6px',
   },
-  h1: { margin: '0 0 4px', fontSize: 26 },
-  sub: { margin: '0 0 20px', color: '#5a6b5a', fontSize: 14 },
+  h1: { fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, margin: '4px 0 2px' },
+  sub: { color: 'var(--stone)', fontSize: 12, margin: '0 0 34px' },
   input: {
-    width: '100%', padding: '12px 14px', fontSize: 16, borderRadius: 10,
-    border: '1px solid #cdd6cd', marginBottom: 12, boxSizing: 'border-box',
+    width: '100%',
+    padding: '12px 2px',
+    fontSize: 16,
+    border: 'none',
+    borderBottom: '1px solid var(--line)',
+    background: 'transparent',
+    color: 'var(--ink)',
+    outline: 'none',
+    boxSizing: 'border-box',
+    fontFamily: 'var(--font-body)',
   },
   btn: {
-    width: '100%', padding: '13px', fontSize: 16, fontWeight: 600,
-    borderRadius: 10, border: 'none', background: '#2d5a2d',
-    color: '#fff', cursor: 'pointer',
+    width: '100%',
+    padding: '14px',
+    marginTop: 26,
+    fontSize: 13,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    border: '1px solid var(--ink)',
+    background: 'var(--ink)',
+    color: 'var(--paper)',
+    cursor: 'pointer',
+    borderRadius: 2,
+    fontFamily: 'var(--font-body)',
   },
   btnGhost: {
-    width: '100%', padding: '13px', fontSize: 15, borderRadius: 10,
-    border: '1px solid #cdd6cd', background: '#fff', color: '#333',
+    width: '100%',
+    padding: '13px',
+    marginTop: 12,
+    fontSize: 13,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    border: '1px solid var(--line)',
+    background: 'transparent',
+    color: 'var(--stone)',
     cursor: 'pointer',
+    borderRadius: 2,
+    fontFamily: 'var(--font-body)',
   },
-  note: { fontSize: 13, color: '#5a6b5a', marginTop: 12, textAlign: 'center' },
-  err: { fontSize: 13, color: '#a33', marginTop: 12, textAlign: 'center' },
-  treeRow: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '14px 0', borderBottom: '1px solid #f0f3f0', gap: 10,
+  note: { fontSize: 12, color: 'var(--stone)', marginTop: 14, textAlign: 'center' },
+  err: { fontSize: 12, color: '#9A4A3A', marginTop: 14 },
+  tree: { margin: '0 0 40px', cursor: 'pointer' },
+  photo: {
+    aspectRatio: '4 / 5',
+    borderRadius: 2,
+    overflow: 'hidden',
+    background: 'var(--pine-night)',
+    position: 'relative',
   },
-  photoCount: { fontSize: 13, color: '#5a6b5a' },
-  version: {
-    position: 'fixed', bottom: 10, insetInlineStart: 12,
-    fontSize: 12, color: '#8a9a8a',
+  photoImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  horizon: { display: 'flex', height: 2 },
+  caption: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 2px 0' },
+  name: { fontFamily: 'var(--font-display)', fontSize: 18 },
+  meta: { fontSize: 11, color: 'var(--stone)' },
+  careWord: { fontSize: 12, color: 'var(--stone)', padding: '2px 2px 0' },
+  addLink: {
+    fontSize: 12,
+    color: 'var(--stone)',
+    textDecoration: 'underline',
+    textUnderlineOffset: 3,
+    cursor: 'pointer',
+    padding: '6px 2px 0',
+    display: 'inline-block',
   },
   localeBtn: {
-    position: 'fixed', top: 12, insetInlineEnd: 12, padding: '6px 12px',
-    borderRadius: 8, border: '1px solid #cdd6cd', background: '#fff',
-    cursor: 'pointer', fontSize: 13,
+    position: 'fixed',
+    top: 14,
+    insetInlineEnd: 14,
+    padding: '5px 10px',
+    fontSize: 12,
+    border: '1px solid var(--line)',
+    borderRadius: 2,
+    background: 'var(--paper)',
+    color: 'var(--stone)',
+    cursor: 'pointer',
   },
+  version: { position: 'fixed', bottom: 10, insetInlineStart: 12, fontSize: 11, color: 'var(--line)' },
+}
+
+function Horizon() {
+  return (
+    <div style={S.horizon} aria-hidden="true">
+      <div style={{ flex: 2, background: 'var(--horizon-1)' }} />
+      <div style={{ flex: 2, background: 'var(--horizon-2)' }} />
+      <div style={{ flex: 1, background: 'var(--horizon-3)' }} />
+    </div>
+  )
+}
+
+/** The one illustration allowed in the system: a single sumi-e stroke. */
+function BrushStroke() {
+  return (
+    <svg viewBox="0 0 224 180" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
+      <path
+        d="M52 168 C60 130 74 108 96 94 C120 79 138 74 168 76 C148 68 122 70 100 82 C112 62 130 52 156 48 C130 44 106 54 92 72 C84 50 88 34 100 20 C84 30 74 48 74 70 C64 88 56 120 52 168 Z"
+        fill="var(--vellum)"
+        opacity="0.9"
+      />
+    </svg>
+  )
 }
 
 function LocaleToggle({ onFlip }) {
   return (
     <button style={S.localeBtn}
       onClick={() => { setLocale(getLocale() === 'en' ? 'he' : 'en'); onFlip() }}>
-      {getLocale() === 'en' ? 'עברית' : 'English'}
+      {getLocale() === 'en' ? 'עברית' : 'EN'}
     </button>
   )
 }
@@ -81,16 +162,18 @@ function Login() {
   }
 
   return (
-    <div style={S.card}>
-      <h1 style={S.h1}>Nebari</h1>
-      <p style={S.sub}>Grow the story of your trees.</p>
-      {sent ? <p>📬 Check your email — we sent you a sign-in link.</p> : (
+    <div style={S.shell} className="screen-enter">
+      <div style={S.wordmark}>Nebari</div>
+      <h1 style={S.h1}>Grow the story of your trees</h1>
+      <p style={S.sub}>No password — we email you a sign-in link.</p>
+      {sent ? (
+        <p style={{ fontSize: 14 }}>Check your email.</p>
+      ) : (
         <form onSubmit={sendLink}>
           <input style={S.input} type="email" required placeholder="you@example.com"
             value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button style={S.btn} disabled={busy}>{busy ? '…' : 'Send sign-in link'}</button>
+          <button style={S.btn} disabled={busy}>{busy ? '…' : 'Send link'}</button>
           {error && <p style={S.err}>{error}</p>}
-          <p style={S.note}>No password. We email you a magic link.</p>
         </form>
       )}
     </div>
@@ -116,99 +199,103 @@ function NewTree({ session, onCreated, onCancel }) {
   }
 
   return (
-    <div style={S.card}>
-      <h1 style={S.h1}>🌱 New tree</h1>
+    <div style={S.shell} className="screen-enter">
+      <div style={S.wordmark}>Nebari</div>
+      <h1 style={S.h1}>New tree</h1>
+      <p style={S.sub}>Give it the name you use in the garden.</p>
       <form onSubmit={create}>
         <input style={S.input} required autoFocus
-          placeholder='e.g. "Old olive", "Juniper #2"'
+          placeholder="Old olive"
           value={name} onChange={(e) => setName(e.target.value)} />
         <button style={S.btn} disabled={busy || !name.trim()}>
           {busy ? '…' : t('common.save')}
         </button>
       </form>
       {error && <p style={S.err}>{error}</p>}
-      <button style={{ ...S.btnGhost, marginTop: 10 }} onClick={onCancel}>
-        {t('common.cancel')}
-      </button>
+      <button style={S.btnGhost} onClick={onCancel}>{t('common.cancel')}</button>
     </div>
   )
 }
 
 function Home({ session, onOpenImport, onNewTree }) {
-  const [profile, setProfile] = useState(null)
-  const [trees, setTrees] = useState([])
-
+  const [trees, setTrees] = useState(null) // null = loading
   const [loadError, setLoadError] = useState(null)
 
   const load = useCallback(async () => {
     setLoadError(null)
 
-    const [profRes, treesRes, mediaRes] = await Promise.all([
-      supabase.from('profiles')
-        .select('username, display_name')
-        .eq('id', session.user.id).single(),
+    const [treesRes, mediaRes] = await Promise.all([
       supabase.from('trees')
         .select('id, name, created_at')
         .eq('owner_id', session.user.id)
         .order('created_at', { ascending: true }),
       supabase.from('tree_media')
-        .select('tree_id')
-        .eq('owner_id', session.user.id),
+        .select('tree_id, storage_path, taken_at')
+        .eq('owner_id', session.user.id)
+        .eq('media_type', 'image')
+        .order('taken_at', { ascending: false }),
     ])
 
-    // Never swallow errors again — surface the first one on screen.
-    const firstErr = profRes.error || treesRes.error || mediaRes.error
-    if (firstErr) setLoadError(firstErr.message)
+    const firstErr = treesRes.error || mediaRes.error
+    if (firstErr) { setLoadError(firstErr.message); setTrees([]); return }
 
+    // Latest photo per tree = the cover; count the rest.
+    const covers = {}
     const counts = {}
     for (const m of mediaRes.data || []) {
       counts[m.tree_id] = (counts[m.tree_id] || 0) + 1
+      if (!covers[m.tree_id]) covers[m.tree_id] = m.storage_path
     }
 
-    setProfile(profRes.data)
-    setTrees((treesRes.data || []).map((t) => ({ ...t, photoCount: counts[t.id] || 0 })))
+    const urls = await signedMediaUrls(Object.values(covers))
+
+    setTrees((treesRes.data || []).map((tr) => ({
+      ...tr,
+      photoCount: counts[tr.id] || 0,
+      coverUrl: covers[tr.id] ? urls[covers[tr.id]] || null : null,
+    })))
   }, [session.user.id])
 
   useEffect(() => { load() }, [load])
 
   return (
-    <div style={S.card}>
-      <h1 style={S.h1}>
-        {profile ? `Hi, ${profile.display_name || profile.username}` : '…'}
-      </h1>
+    <div style={S.shell} className="screen-enter">
+      <div style={S.wordmark}>Nebari</div>
+      <h1 style={S.h1}>My bench</h1>
       <p style={S.sub}>
-        {trees.length === 0 ? 'Your bench is empty — add your first tree.'
-          : `${trees.length} trees on your bench`}
+        {trees === null ? '…'
+          : trees.length === 0 ? 'Empty — plant your first tree below.'
+          : `${trees.length} trees`}
       </p>
 
       {loadError && <p style={S.err}>⚠️ {loadError}</p>}
 
-      {trees.map((tree) => {
-        const count = tree.photoCount
-        return (
-          <div key={tree.id} style={S.treeRow}>
-            <div>
-              <strong>{tree.name}</strong>
-              <div style={S.photoCount}>
-                {count === 0 ? 'No photos yet' : `📷 ${count} photos`}
-              </div>
-            </div>
-            <button style={{ ...S.btn, width: 'auto', padding: '8px 14px', fontSize: 14 }}
-              onClick={() => onOpenImport(tree)}>
-              {count === 0 ? `📷 ${t('import.pickPhotos')}` : `+ ${t('import.pickMore')}`}
-            </button>
+      {(trees || []).map((tree) => (
+        <div key={tree.id} style={S.tree} onClick={() => onOpenImport(tree)}>
+          <div style={S.photo}>
+            {tree.coverUrl
+              ? <img src={tree.coverUrl} alt={tree.name} style={S.photoImg} />
+              : <BrushStroke />}
           </div>
-        )
-      })}
+          <Horizon />
+          <div style={S.caption}>
+            <span style={S.name}>{tree.name}</span>
+            <span style={S.meta}>
+              {tree.photoCount === 0 ? 'no photos' : `${tree.photoCount} photos`}
+            </span>
+          </div>
+          <span style={S.addLink}>
+            {tree.photoCount === 0 ? 'add first photos' : 'add photos'}
+          </span>
+        </div>
+      ))}
 
-      <button style={{ ...S.btn, marginTop: 16 }} onClick={onNewTree}>
-        + New tree
-      </button>
-
-      <button style={{ ...S.btnGhost, marginTop: 10 }}
-        onClick={() => supabase.auth.signOut()}>
-        Sign out
-      </button>
+      {trees !== null && (
+        <>
+          <button style={S.btn} onClick={onNewTree}>+ New tree</button>
+          <button style={S.btnGhost} onClick={() => supabase.auth.signOut()}>Sign out</button>
+        </>
+      )}
     </div>
   )
 }
@@ -231,7 +318,7 @@ export default function App() {
       <LocaleToggle onFlip={() => force((n) => n + 1)} />
       <div style={S.version}>{APP_VERSION}</div>
 
-      {session === undefined ? <p>…</p>
+      {session === undefined ? <p style={{ marginTop: 60, color: 'var(--stone)' }}>…</p>
         : !session ? <Login />
         : view.name === 'newTree' ? (
           <NewTree session={session}
