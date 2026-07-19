@@ -8,6 +8,8 @@ import { supabase, parseDbError } from './lib/supabase'
 import { t, getLocale, setLocale } from './lib/i18n'
 import ImportScreen from './pages/ImportScreen'
 
+const APP_VERSION = 'v0.2'
+
 const S = {
   page: {
     minHeight: '100vh', display: 'flex', flexDirection: 'column',
@@ -42,6 +44,10 @@ const S = {
     padding: '14px 0', borderBottom: '1px solid #f0f3f0', gap: 10,
   },
   photoCount: { fontSize: 13, color: '#5a6b5a' },
+  version: {
+    position: 'fixed', bottom: 10, insetInlineStart: 12,
+    fontSize: 12, color: '#8a9a8a',
+  },
   localeBtn: {
     position: 'fixed', top: 12, insetInlineEnd: 12, padding: '6px 12px',
     borderRadius: 8, border: '1px solid #cdd6cd', background: '#fff',
@@ -140,6 +146,7 @@ function Home({ session, onOpenImport, onNewTree }) {
       // tree_media(count) pulls the photo count per tree in one query
       supabase.from('trees')
         .select('id, name, created_at, tree_media(count)')
+        .eq('owner_id', session.user.id)
         .order('created_at', { ascending: true }),
     ])
     setProfile(p); setTrees(tr || [])
@@ -203,6 +210,7 @@ export default function App() {
   return (
     <div style={S.page}>
       <LocaleToggle onFlip={() => force((n) => n + 1)} />
+      <div style={S.version}>{APP_VERSION}</div>
 
       {session === undefined ? <p>…</p>
         : !session ? <Login />
