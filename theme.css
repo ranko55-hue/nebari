@@ -1,91 +1,140 @@
-/** BenchScreen.jsx — the home tab: your trees as framed photos. */
+/*
+ * theme.css — Nebari design tokens. Shibui edition.
+ * Source of truth: docs/04-design.md.
+ * The whole sunset lives in ONE 2px horizon line. Nothing shouts.
+ */
 
-import { useEffect, useState, useCallback } from 'react'
-import { supabase, signedMediaUrls } from '../lib/supabase'
-import { S, Wordmark, Horizon, BrushStroke } from '../components/ui'
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500&family=Karla:wght@400;500&family=Frank+Ruhl+Libre:wght@400;500&family=Assistant:wght@400;600&display=swap');
 
-const L = {
-  tree: { margin: '0 0 40px', cursor: 'pointer' },
-  photo: {
-    aspectRatio: '4 / 5', borderRadius: 2, overflow: 'hidden',
-    background: 'var(--pine-night)', position: 'relative',
-  },
-  img: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
-  caption: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '12px 2px 0' },
-  name: { fontFamily: 'var(--font-display)', fontSize: 18 },
-  meta: { fontSize: 11, color: 'var(--stone)' },
+:root {
+  /* Paper & ink */
+  --paper: #FCFAF6;
+  --vellum: #F5EFE4;
+  --line: #DAD4C8;
+  --stone: #8B857A;
+  --ink: #22271F;
+  --pine-night: #1E2B22;
+
+  /* The horizon — the entire sunset budget */
+  --horizon-1: #E8C9A0;
+  --horizon-2: #DFA98C;
+  --horizon-3: #C98B7E;
+
+  /* Type */
+  --font-display: 'Shippori Mincho', 'Frank Ruhl Libre', serif;
+  --font-body: 'Karla', 'Assistant', system-ui, sans-serif;
+
+  /* Shape & space */
+  --r-photo: 2px;
+  --r-shell: 22px;
+  --pad-side: 22px;
+  --gap-block: 40px;
 }
 
-export default function BenchScreen({ session, onOpenTree, onNewTree }) {
-  const [trees, setTrees] = useState(null)
-  const [loadError, setLoadError] = useState(null)
+html { background: var(--paper); }
 
-  const load = useCallback(async () => {
-    setLoadError(null)
-    const [treesRes, mediaRes] = await Promise.all([
-      supabase.from('trees')
-        .select('id, name, created_at')
-        .eq('owner_id', session.user.id)
-        .order('created_at', { ascending: true }),
-      supabase.from('tree_media')
-        .select('tree_id, storage_path, taken_at')
-        .eq('owner_id', session.user.id)
-        .eq('media_type', 'image')
-        .order('taken_at', { ascending: false }),
-    ])
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+}
 
-    const firstErr = treesRes.error || mediaRes.error
-    if (firstErr) { setLoadError(firstErr.message); setTrees([]); return }
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  margin: 0;
+}
 
-    const covers = {}
-    const counts = {}
-    for (const m of mediaRes.data || []) {
-      counts[m.tree_id] = (counts[m.tree_id] || 0) + 1
-      if (!covers[m.tree_id]) covers[m.tree_id] = m.storage_path
-    }
-    const urls = await signedMediaUrls(Object.values(covers))
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  color: var(--stone);
+  text-transform: uppercase;
+}
 
-    setTrees((treesRes.data || []).map((tr) => ({
-      ...tr,
-      photoCount: counts[tr.id] || 0,
-      coverUrl: covers[tr.id] ? urls[covers[tr.id]] || null : null,
-    })))
-  }, [session.user.id])
+.text-secondary { color: var(--stone); font-size: 12px; }
 
-  useEffect(() => { load() }, [load])
+/*
+ * The horizon line — usage: <div class="horizon"></div>
+ * Sits at the bottom of every framed photo and the tree-screen header.
+ * Nowhere else. Ever.
+ */
+.horizon {
+  display: flex;
+  height: 2px;
+}
+.horizon::before { content: ''; flex: 2; background: var(--horizon-1); }
+.horizon::after  { content: ''; flex: 1; background: var(--horizon-3); }
+.horizon > i     { flex: 2; background: var(--horizon-2); }
 
-  return (
-    <div style={S.shell} className="screen-enter">
-      <Wordmark />
-      <h1 style={S.h1}>My bench</h1>
-      <p style={S.sub}>
-        {trees === null ? '…'
-          : trees.length === 0 ? 'Empty — plant your first tree below.'
-          : `${trees.length} trees`}
-      </p>
+/*
+ * Passe-partout — the community frame. A photo is never shown naked
+ * in the feed. Fixed 4:5 crop, subtle paper margins, horizon under it.
+ * Usage:
+ *   <figure class="passepartout">
+ *     <div class="pp-photo"><img …></div>
+ *     <div class="horizon"><i></i></div>
+ *     <figcaption>
+ *       <span class="pp-name">Old olive</span>
+ *       <span class="pp-meta">Olea europaea · 12 yrs</span>
+ *     </figcaption>
+ *   </figure>
+ */
+.passepartout {
+  margin: 0;
+  padding: 12px 12px 0;
+  background: var(--paper);
+}
+.pp-photo {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--r-photo);
+  background: var(--pine-night);
+}
+.pp-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.passepartout figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 12px 2px 0;
+}
+.pp-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--ink);
+}
+.pp-meta {
+  font-size: 11px;
+  color: var(--stone);
+}
 
-      {loadError && <p style={S.err}>⚠️ {loadError}</p>}
+/* Bottom nav — three words, thin underline on the active one. No icons. */
+.nav-words {
+  display: flex;
+  justify-content: center;
+  gap: 44px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--stone);
+}
+.nav-words .active {
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 3px;
+}
 
-      {(trees || []).map((tree) => (
-        <div key={tree.id} style={L.tree} onClick={() => onOpenTree(tree)}>
-          <div style={L.photo}>
-            {tree.coverUrl
-              ? <img src={tree.coverUrl} alt={tree.name} style={L.img} />
-              : <BrushStroke />}
-          </div>
-          <Horizon />
-          <div style={L.caption}>
-            <span style={L.name}>{tree.name}</span>
-            <span style={L.meta}>
-              {tree.photoCount === 0 ? 'no photos' : `${tree.photoCount} photos`}
-            </span>
-          </div>
-        </div>
-      ))}
-
-      {trees !== null && (
-        <button style={S.btn} onClick={onNewTree}>+ New tree</button>
-      )}
-    </div>
-  )
+/* The one orchestrated motion: a gentle screen fade */
+@media (prefers-reduced-motion: no-preference) {
+  .screen-enter { animation: screen-fade 0.4s ease-out; }
+}
+@keyframes screen-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
