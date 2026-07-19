@@ -1,0 +1,140 @@
+/*
+ * theme.css — Nebari design tokens. Shibui edition.
+ * Source of truth: docs/04-design.md.
+ * The whole sunset lives in ONE 2px horizon line. Nothing shouts.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500&family=Karla:wght@400;500&family=Frank+Ruhl+Libre:wght@400;500&family=Assistant:wght@400;600&display=swap');
+
+:root {
+  /* Paper & ink */
+  --paper: #FCFAF6;
+  --vellum: #F5EFE4;
+  --line: #DAD4C8;
+  --stone: #8B857A;
+  --ink: #22271F;
+  --pine-night: #1E2B22;
+
+  /* The horizon — the entire sunset budget */
+  --horizon-1: #E8C9A0;
+  --horizon-2: #DFA98C;
+  --horizon-3: #C98B7E;
+
+  /* Type */
+  --font-display: 'Shippori Mincho', 'Frank Ruhl Libre', serif;
+  --font-body: 'Karla', 'Assistant', system-ui, sans-serif;
+
+  /* Shape & space */
+  --r-photo: 2px;
+  --r-shell: 22px;
+  --pad-side: 22px;
+  --gap-block: 40px;
+}
+
+html { background: var(--paper); }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  margin: 0;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  color: var(--stone);
+  text-transform: uppercase;
+}
+
+.text-secondary { color: var(--stone); font-size: 12px; }
+
+/*
+ * The horizon line — usage: <div class="horizon"></div>
+ * Sits at the bottom of every framed photo and the tree-screen header.
+ * Nowhere else. Ever.
+ */
+.horizon {
+  display: flex;
+  height: 2px;
+}
+.horizon::before { content: ''; flex: 2; background: var(--horizon-1); }
+.horizon::after  { content: ''; flex: 1; background: var(--horizon-3); }
+.horizon > i     { flex: 2; background: var(--horizon-2); }
+
+/*
+ * Passe-partout — the community frame. A photo is never shown naked
+ * in the feed. Fixed 4:5 crop, subtle paper margins, horizon under it.
+ * Usage:
+ *   <figure class="passepartout">
+ *     <div class="pp-photo"><img …></div>
+ *     <div class="horizon"><i></i></div>
+ *     <figcaption>
+ *       <span class="pp-name">Old olive</span>
+ *       <span class="pp-meta">Olea europaea · 12 yrs</span>
+ *     </figcaption>
+ *   </figure>
+ */
+.passepartout {
+  margin: 0;
+  padding: 12px 12px 0;
+  background: var(--paper);
+}
+.pp-photo {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: var(--r-photo);
+  background: var(--pine-night);
+}
+.pp-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.passepartout figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 12px 2px 0;
+}
+.pp-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--ink);
+}
+.pp-meta {
+  font-size: 11px;
+  color: var(--stone);
+}
+
+/* Bottom nav — three words, thin underline on the active one. No icons. */
+.nav-words {
+  display: flex;
+  justify-content: center;
+  gap: 44px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--stone);
+}
+.nav-words .active {
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 3px;
+}
+
+/* The one orchestrated motion: a gentle screen fade */
+@media (prefers-reduced-motion: no-preference) {
+  .screen-enter { animation: screen-fade 0.4s ease-out; }
+}
+@keyframes screen-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
