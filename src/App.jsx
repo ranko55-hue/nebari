@@ -1,6 +1,6 @@
 /**
- * App.jsx — shell: session, login, tree list, navigation to import.
- * Full replacement — includes tree creation and the import flow.
+ * App.jsx — shell: session, login, tree list (with photo counts), import flow.
+ * Full replacement.
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -39,8 +39,9 @@ const S = {
   err: { fontSize: 13, color: '#a33', marginTop: 12, textAlign: 'center' },
   treeRow: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '14px 0', borderBottom: '1px solid #f0f3f0',
+    padding: '14px 0', borderBottom: '1px solid #f0f3f0', gap: 10,
   },
+  photoCount: { fontSize: 13, color: '#5a6b5a' },
   localeBtn: {
     position: 'fixed', top: 12, insetInlineEnd: 12, padding: '6px 12px',
     borderRadius: 8, border: '1px solid #cdd6cd', background: '#fff',
@@ -98,20 +99,14 @@ function NewTree({ session, onCreated, onCancel }) {
   async function create(e) {
     e.preventDefault()
     setBusy(true); setError(null)
-
     const { data, error: err } = await supabase
       .from('trees')
       .insert({ owner_id: session.user.id, name: name.trim() })
       .select()
       .single()
-
     setBusy(false)
-    if (err) {
-      const parsed = parseDbError(err)
-      setError(t(`errors.${parsed.code}`))
-    } else {
-      onCreated(data)
-    }
+    if (err) setError(t(`errors.${parseDbError(err).code}`))
+    else onCreated(data)
   }
 
   return (
@@ -140,10 +135,11 @@ function Home({ session, onOpenImport, onNewTree }) {
   const load = useCallback(async () => {
     const [{ data: p }, { data: tr }] = await Promise.all([
       supabase.from('profiles')
-        .select('username, display_name, tree_count')
+        .select('username, display_name')
         .eq('id', session.user.id).single(),
+      // tree_media(count) pulls the photo count per tree in one query
       supabase.from('trees')
-        .select('id, name, created_at')
+        .select('id, name, created_at, tree_media(count)')
         .order('created_at', { ascending: true }),
     ])
     setProfile(p); setTrees(tr || [])
@@ -161,15 +157,23 @@ function Home({ session, onOpenImport, onNewTree }) {
           : `${trees.length} trees on your bench`}
       </p>
 
-      {trees.map((tree) => (
-        <div key={tree.id} style={S.treeRow}>
-          <strong>{tree.name}</strong>
-          <button style={{ ...S.btn, width: 'auto', padding: '8px 14px', fontSize: 14 }}
-            onClick={() => onOpenImport(tree)}>
-            📷 {t('import.pickPhotos')}
-          </button>
-        </div>
-      ))}
+      {trees.map((tree) => {
+        const count = tree.tree_media?.[0]?.count ?? 0
+        return (
+          <div key={tree.id} style={S.treeRow}>
+            <div>
+              <strong>{tree.name}</strong>
+              <div style={S.photoCount}>
+                {count === 0 ? 'No photos yet' : `📷 ${count} photos`}
+              </div>
+            </div>
+            <button style={{ ...S.btn, width: 'auto', padding: '8px 14px', fontSize: 14 }}
+              onClick={() => onOpenImport(tree)}>
+              {count === 0 ? `📷 ${t('import.pickPhotos')}` : `+ ${t('import.pickMore')}`}
+            </button>
+          </div>
+        )
+      })}
 
       <button style={{ ...S.btn, marginTop: 16 }} onClick={onNewTree}>
         + New tree
@@ -185,7 +189,7 @@ function Home({ session, onOpenImport, onNewTree }) {
 
 export default function App() {
   const [session, setSession] = useState(undefined)
-  const [view, setView] = useState({ name: 'home' }) // home | newTree | import
+  const [view, setView] = useState({ name: 'home' })
   const [, force] = useState(0)
 
   useEffect(() => {
