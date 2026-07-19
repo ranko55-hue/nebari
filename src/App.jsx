@@ -13,8 +13,9 @@ import GrowersScreen from './pages/GrowersScreen'
 import SettingsScreen from './pages/SettingsScreen'
 import NewTreeScreen from './pages/NewTreeScreen'
 import ImportScreen from './pages/ImportScreen'
+import TreeScreen from './pages/TreeScreen'
 
-const APP_VERSION = 'v0.5'
+const APP_VERSION = 'v0.6'
 
 const S = {
   page: {
@@ -97,10 +98,17 @@ export default function App() {
         onCreated={(tree) => setOverlay({ name: 'import', tree })}
         onCancel={closeOverlay} />
     )
+  } else if (overlay?.name === 'tree') {
+    content = (
+      <TreeScreen session={session} tree={overlay.tree}
+        onImport={() => setOverlay({ name: 'import', tree: overlay.tree })}
+        onBack={closeOverlay} />
+    )
   } else if (overlay?.name === 'import') {
     content = (
       <ImportScreen session={session} tree={overlay.tree}
-        onDone={closeOverlay} onBack={closeOverlay} />
+        onDone={() => setOverlay({ name: 'tree', tree: overlay.tree })}
+        onBack={() => setOverlay({ name: 'tree', tree: overlay.tree })} />
     )
   } else if (tab === 'care') {
     content = <CareScreen />
@@ -111,7 +119,7 @@ export default function App() {
   } else {
     content = (
       <BenchScreen session={session}
-        onOpenTree={(tree) => setOverlay({ name: 'import', tree })}
+        onOpenTree={(tree) => setOverlay({ name: 'tree', tree })}
         onNewTree={() => setOverlay({ name: 'newTree' })} />
     )
   }
