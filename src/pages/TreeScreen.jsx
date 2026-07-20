@@ -62,7 +62,7 @@ function groupByYear(media, milestones) {
     .map(([year, data]) => ({ year, ...data }))
 }
 
-export default function TreeScreen({ session, tree, onImport, onBack }) {
+export default function TreeScreen({ session, tree, onImport, onCareSchedule, onBack }) {
   const [media, setMedia] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [coverId, setCoverId] = useState(null)
@@ -138,7 +138,10 @@ export default function TreeScreen({ session, tree, onImport, onBack }) {
     <div style={S.shell} className="screen-enter">
       <div style={L.topBar}>
         <button style={L.back} onClick={onBack}>← Bench</button>
-        <button style={L.addLink} onClick={onImport}>{t('tree.addPhotos')}</button>
+        <div style={{ display: 'flex', gap: 20 }}>
+          <button style={L.addLink} onClick={onCareSchedule}>{t('care.scheduleLink')}</button>
+          <button style={L.addLink} onClick={onImport}>{t('tree.addPhotos')}</button>
+        </div>
       </div>
 
       <div style={L.header}>

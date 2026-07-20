@@ -17,6 +17,21 @@ export const S = {
     color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
     fontFamily: 'var(--font-body)',
   },
+  select: {
+    width: '100%', padding: '12px 2px', fontSize: 16, border: 'none',
+    borderBottom: '1px solid var(--line)', background: 'transparent',
+    color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
+    fontFamily: 'var(--font-body)', appearance: 'none', borderRadius: 0, cursor: 'pointer',
+  },
+  label: {
+    display: 'block', fontSize: 11, color: 'var(--stone)',
+    letterSpacing: '0.1em', textTransform: 'uppercase', margin: '22px 0 2px',
+  },
+  link: {
+    background: 'none', border: 'none', cursor: 'pointer', font: 'inherit',
+    fontSize: 12, color: 'var(--stone)', textDecoration: 'underline',
+    textUnderlineOffset: 3, padding: 0, letterSpacing: 'normal', textTransform: 'none',
+  },
   btn: {
     width: '100%', padding: '14px', marginTop: 26, fontSize: 13,
     letterSpacing: '0.12em', textTransform: 'uppercase',
