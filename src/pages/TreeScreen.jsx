@@ -1,14 +1,15 @@
 /**
  * TreeScreen.jsx — screen 1.4: one tree, its timeline by year.
- * The user's own tree = raw photos (docs/04-design.md §3), grouped under
- * big Mincho year headings. Milestones appear as quiet text lines in
- * their year. Header photo carries the horizon line.
+ * v0.7: tapping a photo opens PhotoViewer (set cover / delete photo);
+ * cover respects trees.cover_media_id; tree deletion at the bottom
+ * with a two-tap confirm (removes storage files too).
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { supabase, signedMediaUrls } from '../lib/supabase'
+import { supabase, signedMediaUrls, BUCKET_TREE_MEDIA } from '../lib/supabase'
 import { t } from '../lib/i18n'
 import { S, Horizon, BrushStroke } from '../components/ui'
+import PhotoViewer from '../components/PhotoViewer'
 
 const L = {
   header: {
@@ -19,16 +20,10 @@ const L = {
   titleRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '14px 2px 0' },
   title: { fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 24, margin: 0 },
   meta: { fontSize: 11, color: 'var(--stone)' },
-  year: {
-    fontFamily: 'var(--font-display)', fontSize: 30, color: 'var(--ink)',
-    margin: '44px 0 4px',
-  },
+  year: { fontFamily: 'var(--font-display)', fontSize: 30, color: 'var(--ink)', margin: '44px 0 4px' },
   yearMeta: { fontSize: 11, color: 'var(--stone)', margin: '0 0 14px' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 },
-  cell: {
-    aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: 1,
-    background: 'var(--vellum)',
-  },
+  cell: { aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: 1, background: 'var(--vellum)', cursor: 'pointer' },
   cellImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
   milestone: {
     display: 'flex', gap: 10, alignItems: 'baseline',
@@ -46,6 +41,12 @@ const L = {
     textUnderlineOffset: 3, cursor: 'pointer', background: 'none',
     border: 'none', font: 'inherit', padding: 0,
   },
+  deleteZone: { marginTop: 70, paddingTop: 18, borderTop: '1px solid var(--line)' },
+  deleteLink: {
+    background: 'none', border: 'none', cursor: 'pointer', font: 'inherit',
+    fontSize: 12, color: '#9A4A3A', textDecoration: 'underline',
+    textUnderlineOffset: 3, padding: 0,
+  },
 }
 
 function groupByYear(media, milestones) {
@@ -62,14 +63,19 @@ function groupByYear(media, milestones) {
 }
 
 export default function TreeScreen({ session, tree, onImport, onBack }) {
-  const [years, setYears] = useState(null)
+  const [media, setMedia] = useState(null)
+  const [milestones, setMilestones] = useState([])
+  const [coverId, setCoverId] = useState(null)
   const [urls, setUrls] = useState({})
+  const [viewer, setViewer] = useState(null) // the photo object being viewed
+  const [confirmTree, setConfirmTree] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState(null)
 
   const load = useCallback(async () => {
     setLoadError(null)
-
-    const [mediaRes, msRes] = await Promise.all([
+    const [treeRes, mediaRes, msRes] = await Promise.all([
+      supabase.from('trees').select('cover_media_id').eq('id', tree.id).single(),
       supabase.from('tree_media')
         .select('id, storage_path, taken_at, media_type')
         .eq('tree_id', tree.id)
@@ -81,18 +87,50 @@ export default function TreeScreen({ session, tree, onImport, onBack }) {
         .order('occurred_at', { ascending: true }),
     ])
 
-    const firstErr = mediaRes.error || msRes.error
-    if (firstErr) { setLoadError(firstErr.message); setYears([]); return }
+    const firstErr = treeRes.error || mediaRes.error || msRes.error
+    if (firstErr) { setLoadError(firstErr.message); setMedia([]); return }
 
-    const media = mediaRes.data || []
-    setYears(groupByYear(media, msRes.data || []))
-    setUrls(await signedMediaUrls(media.map((m) => m.storage_path)))
+    setCoverId(treeRes.data?.cover_media_id || null)
+    setMedia(mediaRes.data || [])
+    setMilestones(msRes.data || [])
+    setUrls(await signedMediaUrls((mediaRes.data || []).map((m) => m.storage_path)))
   }, [tree.id])
 
   useEffect(() => { load() }, [load])
 
-  const allPhotos = (years || []).flatMap((y) => y.photos)
-  const cover = allPhotos.length ? allPhotos[allPhotos.length - 1] : null
+  async function setCover(photo) {
+    const { error } = await supabase
+      .from('trees').update({ cover_media_id: photo.id }).eq('id', tree.id)
+    if (error) setLoadError(error.message)
+    else { setCoverId(photo.id); setViewer(null) }
+  }
+
+  async function deletePhoto(photo) {
+    // DB row first (RLS-guarded), then the storage object.
+    const { error } = await supabase.from('tree_media').delete().eq('id', photo.id)
+    if (error) { setLoadError(error.message); return }
+    await supabase.storage.from(BUCKET_TREE_MEDIA).remove([photo.storage_path])
+    if (coverId === photo.id) setCoverId(null) // DB FK already set it null
+    setMedia((m) => m.filter((x) => x.id !== photo.id))
+    setViewer(null)
+  }
+
+  async function deleteTree() {
+    setBusy(true)
+    const paths = (media || []).map((m) => m.storage_path)
+    // Tree row first — cascades all DB children — then the files.
+    const { error } = await supabase.from('trees').delete().eq('id', tree.id)
+    if (error) { setLoadError(error.message); setBusy(false); return }
+    for (let i = 0; i < paths.length; i += 100) {
+      await supabase.storage.from(BUCKET_TREE_MEDIA).remove(paths.slice(i, i + 100))
+    }
+    onBack()
+  }
+
+  const years = media === null ? null : groupByYear(media, milestones)
+  const cover =
+    (media || []).find((m) => m.id === coverId) ||
+    ((media || []).length ? media[media.length - 1] : null)
   const firstYear = years?.length ? years[0].year : null
   const lastYear = years?.length ? years[years.length - 1].year : null
 
@@ -100,7 +138,7 @@ export default function TreeScreen({ session, tree, onImport, onBack }) {
     <div style={S.shell} className="screen-enter">
       <div style={L.topBar}>
         <button style={L.back} onClick={onBack}>← Bench</button>
-        <button style={L.addLink} onClick={onImport}>add photos</button>
+        <button style={L.addLink} onClick={onImport}>{t('tree.addPhotos')}</button>
       </div>
 
       <div style={L.header}>
@@ -113,40 +151,36 @@ export default function TreeScreen({ session, tree, onImport, onBack }) {
       <div style={L.titleRow}>
         <h1 style={L.title}>{tree.name}</h1>
         <span style={L.meta}>
-          {allPhotos.length === 0 ? 'no photos yet'
-            : firstYear === lastYear ? `${allPhotos.length} photos · ${firstYear}`
-            : `${allPhotos.length} photos · ${firstYear}–${lastYear}`}
+          {!media?.length ? t('tree.noPhotos')
+            : firstYear === lastYear ? `${media.length} · ${firstYear}`
+            : `${media.length} · ${firstYear}–${lastYear}`}
         </span>
       </div>
 
       {loadError && <p style={S.err}>⚠️ {loadError}</p>}
 
       {years !== null && years.length === 0 && (
-        <p style={{ ...S.sub, marginTop: 24 }}>
-          The story starts with the first photos — tap "add photos" above.
-        </p>
+        <p style={{ ...S.sub, marginTop: 24 }}>{t('tree.emptyHint')}</p>
       )}
 
-      {(years || []).map(({ year, photos, milestones }) => (
+      {(years || []).map(({ year, photos, milestones: ms }) => (
         <section key={year}>
           <h2 style={L.year}>{year}</h2>
-          <p style={L.yearMeta}>
-            {photos.length === 1 ? '1 photo' : `${photos.length} photos`}
-          </p>
+          <p style={L.yearMeta}>{photos.length === 1 ? '1' : photos.length}</p>
 
-          {milestones.map((ms) => (
-            <div key={ms.id} style={L.milestone}>
+          {ms.map((m) => (
+            <div key={m.id} style={L.milestone}>
               <span style={L.msDate}>
-                {new Date(ms.occurred_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {new Date(m.occurred_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </span>
-              <span>{t(`milestone.${ms.milestone_type}`)}{ms.note ? ` — ${ms.note}` : ''}</span>
+              <span>{t(`milestone.${m.milestone_type}`)}{m.note ? ` — ${m.note}` : ''}</span>
             </div>
           ))}
 
           {photos.length > 0 && (
-            <div style={{ ...L.grid, marginTop: milestones.length ? 12 : 0 }}>
+            <div style={{ ...L.grid, marginTop: ms.length ? 12 : 0 }}>
               {photos.map((p) => (
-                <div key={p.id} style={L.cell}>
+                <div key={p.id} style={L.cell} onClick={() => setViewer(p)}>
                   {urls[p.storage_path] && (
                     <img src={urls[p.storage_path]} alt="" style={L.cellImg} loading="lazy" />
                   )}
@@ -156,6 +190,31 @@ export default function TreeScreen({ session, tree, onImport, onBack }) {
           )}
         </section>
       ))}
+
+      {media !== null && (
+        <div style={L.deleteZone}>
+          {confirmTree ? (
+            <button style={L.deleteLink} disabled={busy} onClick={deleteTree}>
+              {busy ? '…' : t('tree.confirmDeleteTree', { name: tree.name })}
+            </button>
+          ) : (
+            <button style={L.deleteLink} onClick={() => setConfirmTree(true)}>
+              {t('tree.deleteTree')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {viewer && (
+        <PhotoViewer
+          photo={viewer}
+          url={urls[viewer.storage_path]}
+          isCover={viewer.id === (coverId || cover?.id)}
+          onSetCover={() => setCover(viewer)}
+          onDelete={() => deletePhoto(viewer)}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </div>
   )
 }

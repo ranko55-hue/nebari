@@ -24,11 +24,11 @@ export default function BenchScreen({ session, onOpenTree, onNewTree }) {
     setLoadError(null)
     const [treesRes, mediaRes] = await Promise.all([
       supabase.from('trees')
-        .select('id, name, created_at')
+        .select('id, name, created_at, cover_media_id')
         .eq('owner_id', session.user.id)
         .order('created_at', { ascending: true }),
       supabase.from('tree_media')
-        .select('tree_id, storage_path, taken_at')
+        .select('id, tree_id, storage_path, taken_at')
         .eq('owner_id', session.user.id)
         .eq('media_type', 'image')
         .order('taken_at', { ascending: false }),
@@ -37,18 +37,25 @@ export default function BenchScreen({ session, onOpenTree, onNewTree }) {
     const firstErr = treesRes.error || mediaRes.error
     if (firstErr) { setLoadError(firstErr.message); setTrees([]); return }
 
-    const covers = {}
+    const latest = {}
     const counts = {}
+    const byId = {}
     for (const m of mediaRes.data || []) {
       counts[m.tree_id] = (counts[m.tree_id] || 0) + 1
-      if (!covers[m.tree_id]) covers[m.tree_id] = m.storage_path
+      byId[m.id] = m.storage_path
+      if (!latest[m.tree_id]) latest[m.tree_id] = m.storage_path
     }
-    const urls = await signedMediaUrls(Object.values(covers))
+
+    // Chosen cover wins; newest photo is the fallback.
+    const coverPath = (tr) => byId[tr.cover_media_id] || latest[tr.id] || null
+
+    const paths = (treesRes.data || []).map(coverPath).filter(Boolean)
+    const urls = await signedMediaUrls(paths)
 
     setTrees((treesRes.data || []).map((tr) => ({
       ...tr,
       photoCount: counts[tr.id] || 0,
-      coverUrl: covers[tr.id] ? urls[covers[tr.id]] || null : null,
+      coverUrl: coverPath(tr) ? urls[coverPath(tr)] || null : null,
     })))
   }, [session.user.id])
 

@@ -92,6 +92,18 @@ export default {
     markDone: 'Done',
   },
 
+  tree: {
+    addPhotos: 'add photos',
+    noPhotos: 'no photos yet',
+    emptyHint: 'The story starts with the first photos — tap "add photos" above.',
+    setCover: 'Set as cover',
+    isCover: 'This is the cover',
+    deletePhoto: 'Delete photo',
+    confirmDeletePhoto: 'Tap again — delete forever',
+    deleteTree: 'Delete this tree',
+    confirmDeleteTree: 'Tap again — "{name}" and all its photos will be gone forever',
+  },
+
   errors: {
     TREE_LIMIT: 'Free accounts can track 3 trees. Upgrade for unlimited.',
     FORBIDDEN: 'You don’t have access to that.',

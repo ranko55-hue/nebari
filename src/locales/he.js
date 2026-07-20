@@ -86,6 +86,18 @@ export default {
     markDone: 'בוצע',
   },
 
+  tree: {
+    addPhotos: 'הוסף תמונות',
+    noPhotos: 'אין תמונות עדיין',
+    emptyHint: 'הסיפור מתחיל בתמונות הראשונות — לחץ "הוסף תמונות" למעלה.',
+    setCover: 'קבע כתמונת שער',
+    isCover: 'זו תמונת השער',
+    deletePhoto: 'מחק תמונה',
+    confirmDeletePhoto: 'לחץ שוב — מחיקה לצמיתות',
+    deleteTree: 'מחק את העץ',
+    confirmDeleteTree: 'לחץ שוב — "{name}" וכל התמונות שלו יימחקו לצמיתות',
+  },
+
   errors: {
     TREE_LIMIT: 'בחשבון חינם אפשר לנהל 3 עצים. שדרג לעצים ללא הגבלה.',
     FORBIDDEN: 'אין לך גישה לזה.',

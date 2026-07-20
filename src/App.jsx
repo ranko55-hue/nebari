@@ -15,7 +15,7 @@ import NewTreeScreen from './pages/NewTreeScreen'
 import ImportScreen from './pages/ImportScreen'
 import TreeScreen from './pages/TreeScreen'
 
-const APP_VERSION = 'v0.6'
+const APP_VERSION = 'v0.7'
 
 const S = {
   page: {
