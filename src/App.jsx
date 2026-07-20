@@ -14,8 +14,10 @@ import SettingsScreen from './pages/SettingsScreen'
 import NewTreeScreen from './pages/NewTreeScreen'
 import ImportScreen from './pages/ImportScreen'
 import TreeScreen from './pages/TreeScreen'
+import TreeCareScreen from './pages/TreeCareScreen'
+import OnboardingScreen from './pages/OnboardingScreen'
 
-const APP_VERSION = 'v0.7'
+const APP_VERSION = 'v0.8'
 
 const S = {
   page: {
@@ -73,10 +75,17 @@ function Nav({ tab, onTab }) {
   )
 }
 
+function needsOnboarding(profile) {
+  return !!profile
+    && (profile.username || '').startsWith('grower_')
+    && (!profile.display_name || profile.display_name === 'New Grower')
+}
+
 export default function App() {
   const [session, setSession] = useState(undefined)
+  const [profile, setProfile] = useState(undefined) // undefined=loading, null=none
   const [tab, setTab] = useState('bench')
-  const [overlay, setOverlay] = useState(null) // null | {name:'newTree'} | {name:'import', tree}
+  const [overlay, setOverlay] = useState(null) // null | {name:'newTree'} | {name:'import', tree} | {name:'tree'|'treeCare', tree}
   const [, force] = useState(0)
 
   useEffect(() => {
@@ -85,13 +94,27 @@ export default function App() {
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  useEffect(() => {
+    if (!session) { setProfile(undefined); return }
+    supabase.from('profiles')
+      .select('username, display_name, climate_region')
+      .eq('id', session.user.id).single()
+      .then(({ data }) => setProfile(data || null))
+  }, [session])
+
   const closeOverlay = () => setOverlay(null)
+  const onboarding = needsOnboarding(profile)
 
   let content
-  if (session === undefined) {
+  if (session === undefined || (session && profile === undefined)) {
     content = <p style={{ marginTop: 60, color: 'var(--stone)' }}>…</p>
   } else if (!session) {
     content = <AuthScreen />
+  } else if (onboarding) {
+    content = (
+      <OnboardingScreen session={session} profile={profile}
+        onDone={(p) => { setProfile(p); setTab('bench') }} />
+    )
   } else if (overlay?.name === 'newTree') {
     content = (
       <NewTreeScreen session={session}
@@ -102,7 +125,13 @@ export default function App() {
     content = (
       <TreeScreen session={session} tree={overlay.tree}
         onImport={() => setOverlay({ name: 'import', tree: overlay.tree })}
+        onCareSchedule={() => setOverlay({ name: 'treeCare', tree: overlay.tree })}
         onBack={closeOverlay} />
+    )
+  } else if (overlay?.name === 'treeCare') {
+    content = (
+      <TreeCareScreen session={session} tree={overlay.tree}
+        onBack={() => setOverlay({ name: 'tree', tree: overlay.tree })} />
     )
   } else if (overlay?.name === 'import') {
     content = (
@@ -111,11 +140,14 @@ export default function App() {
         onBack={() => setOverlay({ name: 'tree', tree: overlay.tree })} />
     )
   } else if (tab === 'care') {
-    content = <CareScreen />
+    content = <CareScreen session={session} />
   } else if (tab === 'growers') {
     content = <GrowersScreen />
   } else if (tab === 'settings') {
-    content = <SettingsScreen onBack={() => setTab('bench')} onFlip={() => force((n) => n + 1)} />
+    content = (
+      <SettingsScreen session={session} version={APP_VERSION}
+        onBack={() => setTab('bench')} onFlip={() => force((n) => n + 1)} />
+    )
   } else {
     content = (
       <BenchScreen session={session}
@@ -128,7 +160,7 @@ export default function App() {
     <div style={S.page}>
       <div style={S.version}>{APP_VERSION}</div>
       {content}
-      {session && !overlay && <Nav tab={tab} onTab={setTab} />}
+      {session && profile !== undefined && !onboarding && !overlay && <Nav tab={tab} onTab={setTab} />}
     </div>
   )
 }
