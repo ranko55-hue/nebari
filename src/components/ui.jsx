@@ -32,6 +32,12 @@ export const S = {
     fontSize: 12, color: 'var(--stone)', textDecoration: 'underline',
     textUnderlineOffset: 3, padding: 0, letterSpacing: 'normal', textTransform: 'none',
   },
+  word: {
+    background: 'none', border: 'none', cursor: 'pointer', font: 'inherit',
+    fontSize: 12, color: 'var(--ink)', textDecoration: 'underline',
+    textUnderlineOffset: 3, padding: 0, letterSpacing: 'normal', textTransform: 'none',
+  },
+  danger: { color: '#9A4A3A' },
   btn: {
     width: '100%', padding: '14px', marginTop: 26, fontSize: 13,
     letterSpacing: '0.12em', textTransform: 'uppercase',
@@ -71,6 +77,26 @@ export function BrushStroke() {
         fill="var(--vellum)" opacity="0.9"
       />
     </svg>
+  )
+}
+
+/**
+ * Passe-partout — the community frame (docs/04-design.md §3). A photo is
+ * never shown bare in the street: fixed 4:5 crop, 12px paper margin, the
+ * horizon line under the image. The caller supplies the caption below.
+ */
+export function PassePartout({ src, alt }) {
+  return (
+    <div style={{ background: 'var(--paper)' }}>
+      <div style={{ padding: 12 }}>
+        <div style={{ aspectRatio: '4 / 5', overflow: 'hidden', borderRadius: 2, background: 'var(--pine-night)', position: 'relative' }}>
+          {src
+            ? <img src={src} alt={alt} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <BrushStroke />}
+        </div>
+        <Horizon />
+      </div>
+    </div>
   )
 }
 

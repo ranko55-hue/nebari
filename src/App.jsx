@@ -16,8 +16,15 @@ import ImportScreen from './pages/ImportScreen'
 import TreeScreen from './pages/TreeScreen'
 import TreeCareScreen from './pages/TreeCareScreen'
 import OnboardingScreen from './pages/OnboardingScreen'
+import PublicTreeScreen from './pages/PublicTreeScreen'
 
-const APP_VERSION = 'v0.8'
+const APP_VERSION = 'v0.9'
+
+/** /t/<token> is the public share page — resolved before the auth gate. */
+function publicTokenFromPath() {
+  const m = window.location.pathname.match(/^\/t\/(.+)$/)
+  return m ? decodeURIComponent(m[1]) : null
+}
 
 const S = {
   page: {
@@ -86,6 +93,7 @@ export default function App() {
   const [profile, setProfile] = useState(undefined) // undefined=loading, null=none
   const [tab, setTab] = useState('bench')
   const [overlay, setOverlay] = useState(null) // null | {name:'newTree'} | {name:'import', tree} | {name:'tree'|'treeCare', tree}
+  const [publicToken] = useState(() => publicTokenFromPath())
   const [, force] = useState(0)
 
   useEffect(() => {
@@ -104,6 +112,16 @@ export default function App() {
 
   const closeOverlay = () => setOverlay(null)
   const onboarding = needsOnboarding(profile)
+
+  // Public share page — no login required, no bottom nav.
+  if (publicToken) {
+    return (
+      <div style={S.page}>
+        <div style={S.version}>{APP_VERSION}</div>
+        <PublicTreeScreen token={publicToken} session={session || null} />
+      </div>
+    )
+  }
 
   let content
   if (session === undefined || (session && profile === undefined)) {
@@ -124,6 +142,7 @@ export default function App() {
   } else if (overlay?.name === 'tree') {
     content = (
       <TreeScreen session={session} tree={overlay.tree}
+        refreshDerivatives={overlay.refreshDerivatives}
         onImport={() => setOverlay({ name: 'import', tree: overlay.tree })}
         onCareSchedule={() => setOverlay({ name: 'treeCare', tree: overlay.tree })}
         onBack={closeOverlay} />
@@ -136,13 +155,13 @@ export default function App() {
   } else if (overlay?.name === 'import') {
     content = (
       <ImportScreen session={session} tree={overlay.tree}
-        onDone={() => setOverlay({ name: 'tree', tree: overlay.tree })}
-        onBack={() => setOverlay({ name: 'tree', tree: overlay.tree })} />
+        onDone={() => setOverlay({ name: 'tree', tree: overlay.tree, refreshDerivatives: true })}
+        onBack={() => setOverlay({ name: 'tree', tree: overlay.tree, refreshDerivatives: true })} />
     )
   } else if (tab === 'care') {
     content = <CareScreen session={session} />
   } else if (tab === 'growers') {
-    content = <GrowersScreen />
+    content = <GrowersScreen session={session} />
   } else if (tab === 'settings') {
     content = (
       <SettingsScreen session={session} version={APP_VERSION}

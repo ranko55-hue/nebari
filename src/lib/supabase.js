@@ -36,6 +36,15 @@ export function buildMediaPath(ownerId, treeId, filename) {
   return `${ownerId}/${treeId}/${id}.${ext}`
 }
 
+/**
+ * Derived public assets (cover / teaser frames / story) live in the
+ * public-media bucket under the same {owner}/{tree}/ prefix, with stable
+ * names so re-publishing overwrites in place. Never for originals.
+ */
+export function publicDerivativePath(ownerId, treeId, name) {
+  return `${ownerId}/${treeId}/${name}`
+}
+
 /** Current user id, or null. */
 export async function getUserId() {
   const { data } = await supabase.auth.getUser()

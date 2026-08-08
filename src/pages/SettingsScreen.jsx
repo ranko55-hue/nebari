@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import { supabase, parseDbError } from '../lib/supabase'
 import { getLocale, setLocale, t } from '../lib/i18n'
-import { S, Wordmark, Horizon } from '../components/ui'
+import { S, Wordmark } from '../components/ui'
 
 const REGIONS = ['mediterranean', 'temperate', 'tropical', 'arid', 'continental']
 const USERNAME_RE = /^[a-z0-9-]{3,24}$/
@@ -97,8 +97,7 @@ export default function SettingsScreen({ session, version, onBack, onFlip }) {
         {t('settings.back')}
       </button>
 
-      <Horizon />
-      <div style={{ ...L.ro, marginTop: 22 }}>
+      <div style={{ ...L.ro, marginTop: 34 }}>
         <span>{t('settings.version')}</span><span>{version}</span>
       </div>
       <div style={L.ro}>

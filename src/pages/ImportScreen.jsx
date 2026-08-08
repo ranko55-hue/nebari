@@ -12,7 +12,7 @@ import { resolveBatch, summariseBatch } from '../lib/exif'
 import { importBatch, groupByYear, suggestMilestoneGaps } from '../lib/upload'
 import { supabase } from '../lib/supabase'
 import { t } from '../lib/i18n'
-import { S, Wordmark, Horizon } from '../components/ui'
+import { S, Wordmark } from '../components/ui'
 import ReviewUndated, { Thumb } from '../components/ReviewUndated'
 
 const L = {
@@ -123,7 +123,6 @@ export default function ImportScreen({ session, tree, onDone, onBack }) {
       <Wordmark />
       <h1 style={S.h1}>{t('import.title')}</h1>
       <p style={S.sub}>{tree.name} · {t('import.subtitle')}</p>
-      <Horizon />
 
       {summary && (
         <p style={{ ...L.summary, marginTop: 20 }}>

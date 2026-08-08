@@ -7,9 +7,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, signedMediaUrls, BUCKET_TREE_MEDIA } from '../lib/supabase'
+import { renderTreeDerivatives } from '../lib/derivatives'
 import { t } from '../lib/i18n'
 import { S, Horizon, BrushStroke } from '../components/ui'
 import PhotoViewer from '../components/PhotoViewer'
+import TreeShare from '../components/TreeShare'
+import TimelapsePlayer from '../components/TimelapsePlayer'
 
 const L = {
   header: {
@@ -62,20 +65,32 @@ function groupByYear(media, milestones) {
     .map(([year, data]) => ({ year, ...data }))
 }
 
-export default function TreeScreen({ session, tree, onImport, onCareSchedule, onBack }) {
+export default function TreeScreen({ session, tree, onImport, onCareSchedule, refreshDerivatives, onBack }) {
   const [media, setMedia] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [coverId, setCoverId] = useState(null)
+  const [isPublic, setIsPublic] = useState(false)
+  const [publicToken, setPublicToken] = useState(null)
   const [urls, setUrls] = useState({})
   const [viewer, setViewer] = useState(null) // the photo object being viewed
   const [confirmTree, setConfirmTree] = useState(false)
+  const [showTimelapse, setShowTimelapse] = useState(false)
   const [busy, setBusy] = useState(false)
   const [loadError, setLoadError] = useState(null)
+
+  // Re-render the public derivatives silently (fire-and-forget) — the tree
+  // is already published; keep its teaser frames fresh when its photos or
+  // cover change. Errors here never block the owner's own view.
+  const refresh = useCallback((nextMedia, nextCoverId) => {
+    renderTreeDerivatives({
+      ownerId: session.user.id, treeId: tree.id, media: nextMedia, coverId: nextCoverId,
+    }).catch(() => {})
+  }, [session.user.id, tree.id])
 
   const load = useCallback(async () => {
     setLoadError(null)
     const [treeRes, mediaRes, msRes] = await Promise.all([
-      supabase.from('trees').select('cover_media_id').eq('id', tree.id).single(),
+      supabase.from('trees').select('cover_media_id, is_public, public_token').eq('id', tree.id).single(),
       supabase.from('tree_media')
         .select('id, storage_path, taken_at, media_type')
         .eq('tree_id', tree.id)
@@ -90,11 +105,19 @@ export default function TreeScreen({ session, tree, onImport, onCareSchedule, on
     const firstErr = treeRes.error || mediaRes.error || msRes.error
     if (firstErr) { setLoadError(firstErr.message); setMedia([]); return }
 
-    setCoverId(treeRes.data?.cover_media_id || null)
-    setMedia(mediaRes.data || [])
+    const nextMedia = mediaRes.data || []
+    const nextCover = treeRes.data?.cover_media_id || null
+    const pub = !!treeRes.data?.is_public
+    setCoverId(nextCover)
+    setIsPublic(pub)
+    setPublicToken(treeRes.data?.public_token || null)
+    setMedia(nextMedia)
     setMilestones(msRes.data || [])
-    setUrls(await signedMediaUrls((mediaRes.data || []).map((m) => m.storage_path)))
-  }, [tree.id])
+    setUrls(await signedMediaUrls(nextMedia.map((m) => m.storage_path)))
+
+    // Photos may have been added via import since the last publish.
+    if (pub && refreshDerivatives && nextMedia.length) refresh(nextMedia, nextCover)
+  }, [tree.id, refreshDerivatives, refresh])
 
   useEffect(() => { load() }, [load])
 
@@ -102,7 +125,10 @@ export default function TreeScreen({ session, tree, onImport, onCareSchedule, on
     const { error } = await supabase
       .from('trees').update({ cover_media_id: photo.id }).eq('id', tree.id)
     if (error) setLoadError(error.message)
-    else { setCoverId(photo.id); setViewer(null) }
+    else {
+      setCoverId(photo.id); setViewer(null)
+      if (isPublic) refresh(media || [], photo.id)
+    }
   }
 
   async function deletePhoto(photo) {
@@ -110,9 +136,12 @@ export default function TreeScreen({ session, tree, onImport, onCareSchedule, on
     const { error } = await supabase.from('tree_media').delete().eq('id', photo.id)
     if (error) { setLoadError(error.message); return }
     await supabase.storage.from(BUCKET_TREE_MEDIA).remove([photo.storage_path])
+    const nextMedia = (media || []).filter((x) => x.id !== photo.id)
+    const nextCover = coverId === photo.id ? null : coverId
     if (coverId === photo.id) setCoverId(null) // DB FK already set it null
-    setMedia((m) => m.filter((x) => x.id !== photo.id))
+    setMedia(nextMedia)
     setViewer(null)
+    if (isPublic && nextMedia.length) refresh(nextMedia, nextCover)
   }
 
   async function deleteTree() {
@@ -138,7 +167,10 @@ export default function TreeScreen({ session, tree, onImport, onCareSchedule, on
     <div style={S.shell} className="screen-enter">
       <div style={L.topBar}>
         <button style={L.back} onClick={onBack}>← Bench</button>
-        <div style={{ display: 'flex', gap: 20 }}>
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {(media || []).length >= 3 && (
+            <button style={L.addLink} onClick={() => setShowTimelapse(true)}>{t('timelapse.open')}</button>
+          )}
           <button style={L.addLink} onClick={onCareSchedule}>{t('care.scheduleLink')}</button>
           <button style={L.addLink} onClick={onImport}>{t('tree.addPhotos')}</button>
         </div>
@@ -195,6 +227,14 @@ export default function TreeScreen({ session, tree, onImport, onCareSchedule, on
       ))}
 
       {media !== null && (
+        <TreeShare
+          session={session} tree={tree} media={media} coverId={coverId}
+          isPublic={isPublic} publicToken={publicToken}
+          onPublishedChange={(pub) => setIsPublic(pub)}
+        />
+      )}
+
+      {media !== null && (
         <div style={L.deleteZone}>
           {confirmTree ? (
             <button style={L.deleteLink} disabled={busy} onClick={deleteTree}>
@@ -216,6 +256,13 @@ export default function TreeScreen({ session, tree, onImport, onCareSchedule, on
           onSetCover={() => setCover(viewer)}
           onDelete={() => deletePhoto(viewer)}
           onClose={() => setViewer(null)}
+        />
+      )}
+
+      {showTimelapse && (
+        <TimelapsePlayer
+          photos={(media || []).map((m) => ({ ...m, url: urls[m.storage_path] }))}
+          onClose={() => setShowTimelapse(false)}
         />
       )}
     </div>

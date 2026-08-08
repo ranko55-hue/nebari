@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { S, Wordmark, Horizon } from '../components/ui'
+import { S, Wordmark } from '../components/ui'
 
 export default function AuthScreen() {
   const [email, setEmail] = useState('')
@@ -28,7 +28,6 @@ export default function AuthScreen() {
         A quiet place for your bonsai — care schedules, a photo timeline
         across the years, and growers to learn from.
       </p>
-      <Horizon />
       <div style={{ height: 34 }} />
       {sent ? (
         <p style={{ fontSize: 14 }}>Check your email — your sign-in link is there.</p>

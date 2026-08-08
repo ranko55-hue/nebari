@@ -7,7 +7,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { t } from '../lib/i18n'
-import { S, Horizon } from '../components/ui'
+import { S } from '../components/ui'
 
 const TYPES = ['water', 'fertilize', 'prune', 'wire', 'repot', 'pest_check']
 const SEASONS = ['spring', 'summer', 'autumn', 'winter']
@@ -190,8 +190,6 @@ export default function TreeCareScreen({ session, tree, onBack }) {
 
         <button style={S.btn} disabled={busy}>{busy ? '…' : t('care.saveTask')}</button>
       </form>
-
-      <Horizon />
     </div>
   )
 }

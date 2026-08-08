@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { supabase, parseDbError } from '../lib/supabase'
 import { t } from '../lib/i18n'
-import { S, Wordmark, Horizon } from '../components/ui'
+import { S, Wordmark } from '../components/ui'
 
 const REGIONS = ['mediterranean', 'temperate', 'tropical', 'arid', 'continental']
 const USERNAME_RE = /^[a-z0-9-]{3,24}$/
@@ -47,7 +47,6 @@ export default function OnboardingScreen({ session, profile, onDone }) {
       <Wordmark />
       <h1 style={S.h1}>{t('onboarding.title')}</h1>
       <p style={S.sub}>{t('onboarding.subtitle')}</p>
-      <Horizon />
 
       <form onSubmit={save}>
         <label style={S.label}>{t('onboarding.displayName')}</label>

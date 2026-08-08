@@ -19,7 +19,24 @@
 | 1.6 | Care tab — today's tasks across all trees (Overdue → Today) | `src/pages/CareScreen.jsx` | ✅ |
 | 1.7 | Care schedule — per-tree tasks, add interval/seasonal, deactivate | `src/pages/TreeCareScreen.jsx` | ✅ |
 | 1.8 | Settings — editable identity, language, sign out, version/email | `src/pages/SettingsScreen.jsx` | ✅ |
-| 1.9 | Growers — community feed | `src/pages/GrowersScreen.jsx` | ◐ |
+
+---
+
+## 2. Sharing (screens 2.x)
+
+| # | Screen | File | Status |
+|---|---|---|---|
+| 2.1 | Public teaser page `/t/<token>` — anon-safe, 3 framed photos + locked stats + CTA | `src/pages/PublicTreeScreen.jsx`, `src/components/PublicTreeContent.jsx` | ✅ |
+| 2.2 | Publish & share — in TreeScreen: render derivatives → publish, link/copy/Web-Share, unpublish | `src/components/TreeShare.jsx` | ✅ |
+| 2.3 | Timelapse viewer — client-side crossfade slideshow (video pending Edge Functions) | `src/components/TimelapsePlayer.jsx` | ✅ |
+| 2.4 | Story export — offscreen 1080×1920 PNG, passe-partout + wordmark | `src/lib/storyCanvas.js` (+ TreeShare) | ✅ |
+
+## 3. Community (screens 3.x)
+
+| # | Screen | File | Status |
+|---|---|---|---|
+| 3.1 | Growers → Discover — grid of public trees | `src/pages/GrowersScreen.jsx`, `src/components/DiscoverGrid.jsx` | ✅ |
+| 3.2 | Growers → Feed — get_feed posts, like, comments, posting | `src/components/FeedList.jsx`, `src/components/PostComments.jsx` | ✅ |
 
 ### Sub-flows & shared overlays
 
@@ -28,15 +45,11 @@
 | New tree — create, then flow into import | `src/pages/NewTreeScreen.jsx` | ✅ |
 | Photo viewer — set cover / delete photo (two-tap) | `src/components/PhotoViewer.jsx` | ✅ |
 | Review undated — import step 2 (extracted from ImportScreen) | `src/components/ReviewUndated.jsx` | ✅ |
+| Passe-partout frame — the community photo frame | `src/components/ui.jsx` | ✅ |
 
 ---
 
-## 2. Community (the street) — phase 3
-
-Public share pages, timelapses, before/after compositions and following
-growers land here. All ▢ planned; the Growers tab (1.9) is the entry point.
-
----
-
-_Statuses current as of **v0.8** — onboarding, care (tab + per-tree),
-import restyle and settings shipped._
+_Statuses current as of **v0.9** — public sharing (2.1–2.4) and the Growers
+community (3.1–3.2) shipped, client-side only. The timelapse is a crossfade
+slideshow and teaser/cover/story assets are rendered on the client and
+uploaded to public-media; Edge Functions will take over rendering later._
